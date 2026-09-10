@@ -1,0 +1,38 @@
+# Go build and test output
+*.exe
+*.test
+*.out
+coverage.out
+
+# Local caches and data
+.gocache/
+.gocache-*/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# Environment files and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Frontend dependencies and scratch
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
