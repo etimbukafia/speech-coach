@@ -1,115 +1,115 @@
 # Speech Coach
 
-`speech-coach` is a standalone Go application built on the reusable
+Speech Coach is a standalone Go application for speech practice. It combines
+real-time transcription, conversational coaching, text-to-speech, and pitch
+feedback on top of the reusable
 [`real-time-voice-pipeline-go`](https://github.com/etimbukafia/real-time-voice-pipeline-go)
 module.
 
-`speech-coach` now supports two runtime shapes:
+## Modes
 
-- `--mode=browser`: recommended on Windows. The browser owns mic capture and playback.
-- `--mode=coach` / `--mode=analyze`: local CLI audio modes. These still require a `portaudio` build.
+| Mode | Purpose | Audio devices |
+| --- | --- | --- |
+| `analyze` | Record a sample and report vocal range. This is the default. | Local microphone and PortAudio |
+| `coach` | Run an interactive coaching session with pitch feedback. | Local microphone, speaker, and PortAudio |
+| `browser` | Run the coach through the browser. | Browser microphone and playback |
 
-## Browser Mode
+Browser mode is the recommended path on Windows because it does not require
+local PortAudio devices. Coach sessions are stored in SQLite; use `--db` to
+choose a different database path.
 
-Download the Go dependencies before building:
+## Quick start: browser mode
+
+The application depends on a private, versioned Go module. Make sure your
+GitHub account can read the shared pipeline repository, then download the
+dependencies:
 
 ```powershell
-$env:GOPRIVATE='github.com/etimbukafia/*'
+$env:GOPRIVATE = 'github.com/etimbukafia/*'
 go mod download
 ```
 
-Build the React frontend once:
+Create a local environment file and set the provider credentials:
 
 ```powershell
-cd .\frontend
-npm.cmd install
-npm.cmd run build
-cd ..
+Copy-Item .env.example .env
 ```
 
-Then build the Go app without PortAudio:
-
-```powershell
-go build -o voice-coach.exe .
-```
-
-Run the browser server:
-
-```powershell
-.\voice-coach.exe --mode=browser --listen 127.0.0.1:8080
-```
-
-Open:
-
-```text
-http://127.0.0.1:8080
-```
-
-Expected flow:
-
-1. Click `Connect`.
-2. The coach speaks the baseline prompt in the browser.
-3. Click `Start Mic`.
-4. Say the baseline sentence once.
-5. Continue speaking turn by turn. The browser auto-detects end-of-turn silence.
-
-Browser mode does not require local PortAudio devices. It uses:
-
-- Python Mistral realtime STT worker, the legacy Go Voxtral websocket client, or AssemblyAI streaming STT
-- Mistral LLM
-- Cartesia TTS
-
-The built frontend is served from `web/`, and the React source lives in `frontend/`.
-
-## Required Env
-
-Minimum practical browser env:
+At minimum, browser mode needs:
 
 ```dotenv
 VOICE_COACH_STT_PROVIDER=python-mistral
 VOICE_COACH_STT_PYTHON_EXE=C:\path\to\venv\Scripts\python.exe
 MISTRAL_API_KEY=...
 MISTRAL_BASE_URL=https://api.mistral.ai
-MISTRAL_LLM_MODEL=mistral-small-latest
 CARTESIA_API_KEY=...
 CARTESIA_VOICE_ID=...
 ```
 
-AssemblyAI browser env:
+Build the React client and the Go server:
 
-```dotenv
-VOICE_COACH_STT_PROVIDER=assemblyai
-ASSEMBLYAI_API_KEY=...
-ASSEMBLYAI_STREAMING_URL=wss://streaming.assemblyai.com/v3/ws
-ASSEMBLYAI_SPEECH_MODEL=universal-streaming-english
-ASSEMBLYAI_FORMAT_TURNS=true
-ASSEMBLYAI_VAD_THRESHOLD=0.4
-ASSEMBLYAI_END_OF_TURN_CONFIDENCE_THRESHOLD=0.7
-ASSEMBLYAI_MIN_TURN_SILENCE_MS=800
-ASSEMBLYAI_MAX_TURN_SILENCE_MS=3600
-ASSEMBLYAI_KEYTERMS_PROMPT=Rowan,resonance,grounded
-MISTRAL_API_KEY=...
-MISTRAL_LLM_MODEL=mistral-small-latest
-CARTESIA_API_KEY=...
-CARTESIA_VOICE_ID=...
+```powershell
+Push-Location .\frontend
+npm.cmd ci
+npm.cmd run build
+Pop-Location
+
+go build -o speech-coach.exe .
 ```
 
-The AssemblyAI defaults above are conservative on purpose. They hold the floor longer, which fits reflective coaching turns better than aggressive end-of-turn settings.
+Start the server:
 
-Python packages in that interpreter:
+```powershell
+.\speech-coach.exe --mode=browser --listen=127.0.0.1:8080
+```
+
+Open <http://127.0.0.1:8080> and select `Connect`, then `Start Mic`.
+
+The built frontend is embedded in the Go binary from `web/`. React source and
+development tooling live in `frontend/`.
+
+## Speech providers
+
+The default STT provider is `python-mistral`. Install its Python dependency in
+the interpreter configured by `VOICE_COACH_STT_PYTHON_EXE`:
 
 ```powershell
 C:\path\to\venv\Scripts\python.exe -m pip install "mistralai[realtime]>=2.4.0"
 ```
 
-AssemblyAI keyterm prompting is optional. Start with none, then add only words the recognizer consistently struggles with.
+You can also set `VOICE_COACH_STT_PROVIDER` to `assemblyai` or `go-websocket`.
+The provider-specific variables and optional tuning settings are documented in
+[`.env.example`](.env.example).
 
-## CLI Audio Modes
+## Local audio modes
 
-If you want `--mode=coach` or `--mode=analyze`, build with PortAudio:
+Local microphone and speaker modes require the native PortAudio toolchain:
 
 ```powershell
-go build -tags "portaudio" -o voice-coach.exe .
+.\build.ps1
+.\speech-coach.exe --mode=analyze
+.\speech-coach.exe --mode=coach
 ```
 
-Those modes still depend on local mic/speaker devices and the native PortAudio toolchain.
+Use `.\build.ps1 -UseSilero` to build with Silero VAD. The script expects
+`gcc`, `pkg-config` (or `pkgconf`), and the ONNX Runtime installation specified
+by its `-OnnxRoot` parameter.
+
+## Frontend development
+
+Run the Vite development server from `frontend/`:
+
+```powershell
+Push-Location .\frontend
+npm.cmd ci
+npm.cmd run dev
+Pop-Location
+```
+
+## Validation
+
+```powershell
+go test ./...
+go vet ./...
+go build ./...
+```
